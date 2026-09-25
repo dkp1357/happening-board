@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class EventCategory(str, Enum):
     MILITARY_CONFLICT = "military_conflict"
     CIVIL_UNREST = "civil_unrest"

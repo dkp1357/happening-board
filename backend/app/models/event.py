@@ -1,6 +1,8 @@
-from typing import List, Optional
+
 from pydantic import BaseModel, Field
+
 from app.models.common import EventCategory, SeverityLevel
+
 
 class EventBase(BaseModel):
     title: str
@@ -9,24 +11,24 @@ class EventBase(BaseModel):
     severity: SeverityLevel = SeverityLevel.INFO
     latitude: float
     longitude: float
-    location_name: Optional[str] = None
-    country_code: Optional[str] = None
+    location_name: str | None = None
+    country_code: str | None = None
     source_url: str
-    source_domain: Optional[str] = None
-    actor1: Optional[str] = None
-    actor2: Optional[str] = None
-    key_actors: List[str] = Field(default_factory=list)
-    goldstein_scale: Optional[float] = None
-    avg_tone: Optional[float] = None
+    source_domain: str | None = None
+    actor1: str | None = None
+    actor2: str | None = None
+    key_actors: list[str] = Field(default_factory=list)
+    goldstein_scale: float | None = None
+    avg_tone: float | None = None
     event_timestamp: str
     
 class EventCreate(EventBase):
-    global_event_id: Optional[str] = None
+    global_event_id: str | None = None
     ai_processed: bool = False
 
 class EventResponse(EventBase):
     id: str
-    global_event_id: Optional[str] = None
+    global_event_id: str | None = None
     ai_processed: bool = False
     created_at: str
     
@@ -34,13 +36,13 @@ class EventListResponse(BaseModel):
     total: int
     limit: int
     offset: int
-    events: List[EventResponse]
+    events: list[EventResponse]
     
 
 # GeoJSON RFC 7946 Specification Models
 class GeoJSONGeometry(BaseModel):
     type: str = "Point"
-    coordinates: List[float]  # [longitude, latitude]
+    coordinates: list[float]  # [longitude, latitude]
 
 class GeoJSONProperties(BaseModel):
     id: str
@@ -48,11 +50,11 @@ class GeoJSONProperties(BaseModel):
     summary: str
     category: str
     severity: int
-    location_name: Optional[str]
-    country_code: Optional[str]
+    location_name: str | None
+    country_code: str | None
     source_url: str
-    source_domain: Optional[str]
-    key_actors: List[str]
+    source_domain: str | None
+    key_actors: list[str]
     event_timestamp: str
     ai_processed: bool
 
@@ -63,7 +65,7 @@ class GeoJSONFeature(BaseModel):
 
 class GeoJSONFeatureCollection(BaseModel):
     type: str = "FeatureCollection"
-    features: List[GeoJSONFeature]
+    features: list[GeoJSONFeature]
     
 
 # Analytics & Statistics Models
@@ -82,7 +84,7 @@ class CountryStat(BaseModel):
 class DashboardStats(BaseModel):
     total_events: int
     ai_processed_events: int
-    categories: List[CategoryStat]
-    severity_distribution: List[SeverityStat]
-    top_hotspots: List[CountryStat]
-    latest_event_time: Optional[str] = None
+    categories: list[CategoryStat]
+    severity_distribution: list[SeverityStat]
+    top_hotspots: list[CountryStat]
+    latest_event_time: str | None = None
