@@ -63,6 +63,23 @@ class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     
+    # cors settings
+    cors_origins: str = ""
+    cors_methods: str = ""
+    cors_headers: str = ""
+    
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [x.strip() for x in self.cors_origins.split(",") if x.strip()]
+
+    @property
+    def cors_methods_list(self) -> list[str]:
+        return [x.strip() for x in self.cors_methods.split(",") if x.strip()]
+
+    @property
+    def cors_headers_list(self) -> list[str]:
+        return [x.strip() for x in self.cors_headers.split(",") if x.strip()]
+    
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),
         env_file_encoding="utf-8",

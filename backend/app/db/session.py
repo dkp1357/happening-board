@@ -13,7 +13,7 @@ _pool: asyncpg.Pool | None = None
 async def init_db_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
-        db_url = settings.get_database_url()
+        db_url = settings.get_database_url
         logger.info("Connecting to PostgreSQL database...")
         _pool = await asyncpg.create_pool(
             dsn=db_url,

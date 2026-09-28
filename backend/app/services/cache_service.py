@@ -18,7 +18,7 @@ class CacheService:
             return
         try:
             self._redis = aioredis.from_url(
-                settings.get_redis_url(),
+                settings.get_redis_url,
                 encoding="utf-8",
                 decode_responses=True,
                 socket_timeout=2.0,

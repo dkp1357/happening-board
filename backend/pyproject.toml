@@ -8,4 +8,5 @@ dependencies = [
     "groq>=1.7.0",
     "redis>=8.1.0",
     "ruff>=0.16.9",
+    "slowapi>=0.1.10",
 ]

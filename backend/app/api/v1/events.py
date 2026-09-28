@@ -1,8 +1,9 @@
 import asyncpg
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.api.deps import get_db_session
 from app.db import repository
+from app.main import limiter
 from app.models.common import EventCategory
 from app.models.event import (
     EventListResponse,
@@ -17,7 +18,9 @@ from app.services.cache_service import cache_service
 router = APIRouter(prefix="/events", tags=["Events"])
 
 @router.get("", response_model=EventListResponse)
+@limiter.limit("60/minute")
 async def list_events(
+    request: Request,
     category: EventCategory | None = Query(None, description="Filter by event category"),
     min_severity: int | None = Query(None, ge=1, le=5, description="Filter by minimum severity (1-5)"),
     country_code: str | None = Query(None, description="2-letter country code filter (e.g. UA, SY, IL)"),
@@ -49,7 +52,9 @@ async def list_events(
     return result
 
 @router.get("/geojson", response_model=GeoJSONFeatureCollection)
+@limiter.limit("60/minute")
 async def get_events_geojson(
+    request: Request,
     category: EventCategory | None = Query(None, description="Filter by event category"),
     min_severity: int | None = Query(None, ge=1, le=5, description="Filter by minimum severity (1-5)"),
     country_code: str | None = Query(None, description="2-letter country code filter"),
@@ -105,7 +110,9 @@ async def get_events_geojson(
     return collection
 
 @router.get("/bbox", response_model=list[EventResponse])
+@limiter.limit("60/minute")
 async def get_events_by_bounding_box(
+    request: Request,
     min_lat: float = Query(..., ge=-90.0, le=90.0, description="Southernmost latitude"),
     min_lon: float = Query(..., ge=-180.0, le=180.0, description="Westernmost longitude"),
     max_lat: float = Query(..., ge=-90.0, le=90.0, description="Northernmost latitude"),
@@ -138,7 +145,9 @@ async def get_events_by_bounding_box(
     return events
 
 @router.get("/{event_id}", response_model=EventResponse)
+@limiter.limit("60/minute")
 async def get_event_detail(
+    request: Request,
     event_id: str,
     conn: asyncpg.Connection = Depends(get_db_session),
 ):

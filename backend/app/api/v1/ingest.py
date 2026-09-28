@@ -1,14 +1,17 @@
 import asyncpg
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 
 from app.api.deps import get_db_session, verify_ingest_key
 from app.db import repository
+from app.main import limiter
 from app.services.ingestion_service import ingestion_service
 
 router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 
 @router.post("/trigger", dependencies=[Depends(verify_ingest_key)])
+@limiter.limit("2/minute")
 async def trigger_ingestion(
+    request: Request,
     background_tasks: BackgroundTasks,
     max_records: int = Query(50, ge=1, le=200, description="Max records to fetch and enrich in this run"),
 ):
@@ -23,7 +26,8 @@ async def trigger_ingestion(
     }
     
 @router.get("/status")
-async def get_ingest_status(conn: asyncpg.Connection = Depends(get_db_session)):
+@limiter.limit("30/minute")
+async def get_ingest_status(request: Request, conn: asyncpg.Connection = Depends(get_db_session)):
     """
     Get the status of the most recent GDELT ingestion cycle.
     """
