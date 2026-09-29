@@ -1,14 +1,13 @@
+import asyncio
 import json
 import logging
+import re
 from typing import Any
 
-from groq import AsyncGroq
+from groq import APIError, AsyncGroq, RateLimitError
 
 from app.config import settings
-from app.models.common import (
-    EventCategory,
-    SeverityLevel,
-)
+from app.models.common import EventCategory, SeverityLevel
 from app.models.event import EventCreate
 
 logger = logging.getLogger(__name__)
@@ -20,6 +19,10 @@ class GroqAIService:
         if self.api_key:
             self.client = AsyncGroq(api_key=self.api_key)
         self.model = settings.GROQ_MODEL
+        # Enforce maximum batch size of 5 to protect Groq free tier 8K TPM limit
+        self.batch_size = min(5, max(1, getattr(settings, "GROQ_BATCH_SIZE", 5)))
+        # Pacing delay between batch API calls to stay under 8K TPM and 30 RPM
+        self.pacing_delay = float(getattr(settings, "GROQ_PACING_DELAY_SECONDS", 4.0))
 
     @property
     def is_available(self) -> bool:
@@ -28,6 +31,7 @@ class GroqAIService:
     async def enrich_events(self, events: list[EventCreate]) -> list[EventCreate]:
         """
         Enrich a batch of incoming events with AI summaries, categories, and severity.
+        Designed for Groq Free Tier limits (TPM: 8K, RPM: 30, Daily: 200K tokens).
         Gracefully falls back to heuristic tagging if Groq is unavailable or rate-limited.
         """
         if not events:
@@ -38,45 +42,106 @@ class GroqAIService:
             return self._heuristic_enrich_batch(events)
 
         enriched: list[EventCreate] = []
-        batch_size = max(1, settings.GROQ_BATCH_SIZE)
+        total_events = len(events)
+        batch_size = self.batch_size
 
-        for i in range(0, len(events), batch_size):
+        logger.info(
+            f"Starting Groq enrichment for {total_events} events "
+            f"(model={self.model}, batch_size={batch_size}, pacing={self.pacing_delay}s)"
+        )
+
+        for i in range(0, total_events, batch_size):
             chunk = events[i : i + batch_size]
-            try:
-                processed_chunk = await self._process_chunk_with_groq(chunk)
-                enriched.extend(processed_chunk)
-            except Exception as e:
-                logger.warning(f"Groq API error during batch enrichment: {e}. Falling back to heuristics.")
-                enriched.extend(self._heuristic_enrich_batch(chunk))
+            chunk_num = (i // batch_size) + 1
+            total_chunks = (total_events + batch_size - 1) // batch_size
+
+            processed_chunk = await self._enrich_chunk_with_retry(chunk, chunk_num, total_chunks)
+            enriched.extend(processed_chunk)
+
+            # Pacing delay between chunks to respect rolling 8K TPM window
+            if i + batch_size < total_events and self.pacing_delay > 0:
+                logger.debug(f"Pacing Groq requests: sleeping {self.pacing_delay}s before next batch...")
+                await asyncio.sleep(self.pacing_delay)
 
         return enriched
+
+    async def _enrich_chunk_with_retry(
+        self,
+        chunk: list[EventCreate],
+        chunk_num: int,
+        total_chunks: int,
+        max_retries: int = 2,
+    ) -> list[EventCreate]:
+        """Attempt chunk enrichment with backoff on rate limits."""
+        for attempt in range(max_retries + 1):
+            try:
+                logger.info(f"Processing Groq chunk {chunk_num}/{total_chunks} ({len(chunk)} events, attempt {attempt + 1})...")
+                return await self._process_chunk_with_groq(chunk)
+            except RateLimitError as e:
+                # Extract suggested retry delay from error message or header
+                retry_wait = self._extract_retry_delay(e, default=5.0 * (attempt + 1))
+                if attempt < max_retries and retry_wait <= 25.0:
+                    logger.warning(
+                        f"Groq Rate limit hit on chunk {chunk_num}/{total_chunks}. "
+                        f"Backing off for {retry_wait:.1f}s before retry ({attempt + 1}/{max_retries})..."
+                    )
+                    await asyncio.sleep(retry_wait)
+                else:
+                    logger.warning(
+                        f"Groq Rate limit exceeded (retries exhausted or wait too long: {retry_wait:.1f}s). "
+                        f"Falling back to heuristics for chunk {chunk_num}."
+                    )
+                    return self._heuristic_enrich_batch(chunk)
+            except APIError as e:
+                logger.warning(f"Groq API error on chunk {chunk_num}: {e}. Falling back to heuristics.")
+                return self._heuristic_enrich_batch(chunk)
+            except Exception as e:
+                logger.warning(f"Unexpected error during Groq enrichment on chunk {chunk_num}: {e}. Falling back to heuristics.")
+                return self._heuristic_enrich_batch(chunk)
+
+        return self._heuristic_enrich_batch(chunk)
+
+    def _extract_retry_delay(self, exc: RateLimitError, default: float = 6.0) -> float:
+        """Parse retry delay in seconds from RateLimitError message or response headers."""
+        try:
+            err_msg = str(exc)
+            match = re.search(r"try again in ([0-9.]+)s", err_msg, re.IGNORECASE)
+            if match:
+                return float(match.group(1)) + 1.0  # Add 1s safety buffer
+
+            match_ms = re.search(r"try again in ([0-9.]+)ms", err_msg, re.IGNORECASE)
+            if match_ms:
+                return (float(match_ms.group(1)) / 1000.0) + 1.0
+        except Exception:
+            pass
+        return default
 
     async def _process_chunk_with_groq(self, chunk: list[EventCreate]) -> list[EventCreate]:
         """Send a chunk of events to Groq with structured JSON output."""
         items_payload = []
         for idx, ev in enumerate(chunk):
+            # Trim payload to minimize token consumption against 8K TPM limit
             items_payload.append({
                 "item_index": idx,
-                "title": ev.title,
-                "source_url": ev.source_url,
-                "location": ev.location_name or "Unknown location",
+                "title": (ev.title or "")[:120],
+                "domain": ev.source_domain or "news",
+                "location": (ev.location_name or "Unknown")[:80],
                 "country": ev.country_code or "Unknown",
-                "actor1": ev.actor1,
-                "actor2": ev.actor2,
-                "goldstein_scale": ev.goldstein_scale,
-                "avg_tone": ev.avg_tone,
+                "actor1": (ev.actor1 or "")[:60],
+                "actor2": (ev.actor2 or "")[:60],
+                "goldstein": ev.goldstein_scale,
             })
 
         system_prompt = (
-            "You are an expert real-time OSINT (Open Source Intelligence) and conflict-monitoring analyst for a dashboard like Liveuamap.\n"
-            "Given a list of raw incoming news events, analyze each item and return a structured JSON object containing an 'enriched_events' array.\n"
-            "For each item, produce:\n"
-            "- item_index: integer corresponding to the input\n"
-            "- headline: A punchy, factual, objective headline (max 12 words)\n"
-            "- summary: A neutral, verified 1-2 sentence briefing explaining what happened and strategic significance\n"
+            "You are an expert OSINT and conflict-monitoring analyst for a dashboard like Liveuamap.\n"
+            "Analyze each raw item and respond with valid JSON containing an 'enriched_events' array.\n"
+            "For each item provide:\n"
+            "- item_index: integer matching input\n"
+            "- headline: Objective factual headline (max 10 words)\n"
+            "- summary: Neutral 1-2 sentence briefing explaining what happened and strategic significance\n"
             "- category: EXACTLY one of: ['military_conflict', 'civil_unrest', 'terror_security', 'diplomacy', 'humanitarian', 'infrastructure_cyber', 'other']\n"
-            "- severity: integer from 1 to 5 (1=minor routine, 2=low/localized protest, 3=medium clash/border incident, 4=high/major military strike, 5=critical invasion/mass casualty)\n"
-            "- key_actors: list of strings (countries, factions, leaders, or militant groups involved)\n"
+            "- severity: integer 1-5 (1=minor routine, 2=low/localized protest, 3=medium clash/border incident, 4=high/major military strike, 5=critical invasion/mass casualty)\n"
+            "- key_actors: list of strings (countries, factions, leaders involved)\n"
             "Respond strictly in valid JSON."
         )
 
@@ -90,7 +155,7 @@ class GroqAIService:
             ],
             response_format={"type": "json_object"},
             temperature=0.2,
-            max_completion_tokens=1500,
+            max_completion_tokens=2048,  # Ample space for reasoning tokens + JSON response
         )
 
         content = response.choices[0].message.content

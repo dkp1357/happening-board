@@ -51,8 +51,9 @@ class Settings(BaseSettings):
 
     # Groq AI Configuration
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    GROQ_MODEL: str = "openai/gpt-oss-20b"
     GROQ_BATCH_SIZE: int = 5
+    GROQ_PACING_DELAY_SECONDS: float = 4.0
     AI_ENRICHMENT_ENABLED: bool = True
     
     # GDELT Ingestion Source
