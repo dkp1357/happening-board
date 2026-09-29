@@ -3,13 +3,15 @@ from fastapi import APIRouter, Depends, Request
 
 from app.api.deps import get_db_session
 from app.db import repository
-from app.main import limiter
 from app.models.event import DashboardStats
+from app.rate_limiter import limiter
 from app.services.cache_service import cache_service
 
 router = APIRouter(prefix="/stats", tags=["Analytics"])
 
-@router.get("", response_model=DashboardStats)
+@router.get("", response_model=DashboardStats, responses= {429: {
+            "description": "Rate Limit Exceeded",
+        }})
 @limiter.limit("60/minute")
 async def get_stats(request: Request, conn: asyncpg.Connection = Depends(get_db_session)):
     """

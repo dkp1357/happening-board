@@ -4,9 +4,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.api.v1.events import router as events_router
 from app.api.v1.ingest import router as ingest_router
@@ -14,6 +13,7 @@ from app.api.v1.stats import router as stats_router
 from app.config import settings
 from app.db.repository import init_db
 from app.db.session import close_db_pool, get_db_connection, init_db_pool
+from app.rate_limiter import limiter
 from app.services.cache_service import cache_service
 from app.services.ingestion_service import ingestion_service
 
@@ -71,11 +71,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-limiter = Limiter(
-    key_func=get_remote_address, 
-    storage_uri=settings.get_redis_url,
-    strategy="moving-window" # sliding-window
-    )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -93,7 +88,9 @@ app.include_router(events_router, prefix=settings.API_V1_PREFIX)
 app.include_router(stats_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ingest_router, prefix=settings.API_V1_PREFIX)
 
-@app.get("/", tags=["Root"])
+@app.get("/", tags=["Root"], responses= {429: {
+            "description": "Rate Limit Exceeded",
+        }})
 async def root(request: Request):
     return {
         "project": "happening-board",
@@ -113,7 +110,9 @@ async def root(request: Request):
         "ai_status": "enabled (Groq)" if ingestion_service.groq_service.is_available else "heuristic_fallback",
     }
 
-@app.get("/health", tags=["Root"])
+@app.get("/health", tags=["Root"], responses= {429: {
+            "description": "Rate Limit Exceeded",
+        }})
 async def health_check(request: Request):
     redis_healthy = await cache_service.is_healthy()
     return {

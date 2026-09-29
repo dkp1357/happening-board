@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.api.deps import get_db_session
 from app.db import repository
-from app.main import limiter
 from app.models.common import EventCategory
 from app.models.event import (
     EventListResponse,
@@ -13,11 +12,14 @@ from app.models.event import (
     GeoJSONGeometry,
     GeoJSONProperties,
 )
+from app.rate_limiter import limiter
 from app.services.cache_service import cache_service
 
 router = APIRouter(prefix="/events", tags=["Events"])
 
-@router.get("", response_model=EventListResponse)
+@router.get("", response_model=EventListResponse, responses= {429: {
+            "description": "Rate Limit Exceeded",
+        }})
 @limiter.limit("60/minute")
 async def list_events(
     request: Request,
@@ -51,7 +53,9 @@ async def list_events(
     await cache_service.set_json(cache_key, result.model_dump(), ttl_seconds=60)
     return result
 
-@router.get("/geojson", response_model=GeoJSONFeatureCollection)
+@router.get("/geojson", response_model=GeoJSONFeatureCollection, responses= {429: {
+            "description": "Rate Limit Exceeded",
+        }})
 @limiter.limit("60/minute")
 async def get_events_geojson(
     request: Request,
@@ -109,7 +113,9 @@ async def get_events_geojson(
     await cache_service.set_json(cache_key, collection.model_dump(), ttl_seconds=120)
     return collection
 
-@router.get("/bbox", response_model=list[EventResponse])
+@router.get("/bbox", response_model=list[EventResponse], responses= {429: {
+            "description": "Rate Limit Exceeded",
+        }})
 @limiter.limit("60/minute")
 async def get_events_by_bounding_box(
     request: Request,
@@ -144,7 +150,9 @@ async def get_events_by_bounding_box(
     await cache_service.set_json(cache_key, [e.model_dump() for e in events], ttl_seconds=60)
     return events
 
-@router.get("/{event_id}", response_model=EventResponse)
+@router.get("/{event_id}", response_model=EventResponse, responses= {429: {
+            "description": "Rate Limit Exceeded",
+        }})
 @limiter.limit("60/minute")
 async def get_event_detail(
     request: Request,

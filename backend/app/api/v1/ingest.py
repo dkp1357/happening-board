@@ -3,12 +3,15 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 
 from app.api.deps import get_db_session, verify_ingest_key
 from app.db import repository
-from app.main import limiter
+from app.rate_limiter import limiter
 from app.services.ingestion_service import ingestion_service
 
 router = APIRouter(prefix="/ingest", tags=["Ingestion"])
 
-@router.post("/trigger", dependencies=[Depends(verify_ingest_key)])
+@router.post("/trigger", dependencies=[Depends(verify_ingest_key)], responses= {429: {
+            "description": "Rate Limit Exceeded",
+        },
+        403 : {"description": "Forbidden"}})
 @limiter.limit("2/minute")
 async def trigger_ingestion(
     request: Request,
