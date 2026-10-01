@@ -2,10 +2,8 @@ name: Scheduled GDELT Ingestion
 
 on:
   schedule:
-    # Runs every 15 minutes (free on public and private GitHub repositories)
     - cron: "*/15 * * * *"
   workflow_dispatch:
-    # Allows manual one-click trigger from GitHub Actions tab
 
 jobs:
   trigger-ingestion:

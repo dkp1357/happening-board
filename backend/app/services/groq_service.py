@@ -138,7 +138,7 @@ class GroqAIService:
             "For each item provide:\n"
             "- item_index: integer matching input\n"
             "- headline: Objective factual headline (max 10 words)\n"
-            "- summary: Neutral 1-2 sentence briefing explaining what happened and strategic significance\n"
+            "- summary: Neutral 4-6 sentence briefing explaining what happened and strategic significance\n"
             "- category: EXACTLY one of: ['military_conflict', 'civil_unrest', 'terror_security', 'diplomacy', 'humanitarian', 'infrastructure_cyber', 'other']\n"
             "- severity: integer 1-5 (1=minor routine, 2=low/localized protest, 3=medium clash/border incident, 4=high/major military strike, 5=critical invasion/mass casualty)\n"
             "- key_actors: list of strings (countries, factions, leaders involved)\n"

@@ -1,69 +1,198 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import React, { useState } from "react"
+import { useEvents } from "@/hooks/use-events"
+import { useStats } from "@/hooks/use-stats"
+import { EventCategory, EventItem } from "@/lib/types"
+import { Navbar } from "@/components/navbar"
+import { EventFeed } from "@/components/event-feed"
+import { StatsPanel } from "@/components/stats-panel"
+import { EventDetailDialog } from "@/components/event-detail-dialog"
+import { IngestModal } from "@/components/ingest-modal"
+import { Button } from "@/components/ui/button"
+
+export default function HomePage() {
+  const [activeTab, setActiveTab] = useState<"feed" | "analytics">("feed")
+  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null)
+  const [inspectEvent, setInspectEvent] = useState<EventItem | null>(null)
+  const [isIngestModalOpen, setIsIngestModalOpen] = useState(false)
+
+  // Events Hook
+  const {
+    events,
+    total,
+    isLoading: eventsLoading,
+    isRefreshing: eventsRefreshing,
+    error: eventsError,
+    refresh: refreshEvents,
+    category,
+    setCategory,
+    minSeverity,
+    setMinSeverity,
+    countryCode,
+    setCountryCode,
+    search,
+    setSearch,
+    resetFilters,
+  } = useEvents({ autoRefreshInterval: 30000 })
+
+  // Stats Hook
+  const {
+    stats,
+    health,
+    isLoading: statsLoading,
+    refresh: refreshStats,
+  } = useStats(45000)
+
+  const handleSelectEvent = (event: EventItem) => {
+    setSelectedEvent(event)
+  }
+
+  const handleInspectEvent = (event: EventItem) => {
+    setInspectEvent(event)
+  }
+
+  const handleRefreshAll = () => {
+    refreshEvents()
+    refreshStats()
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+    <div className="flex flex-col min-h-screen bg-background text-foreground">
+      {/* Top Navbar */}
+      <Navbar
+        totalEvents={total}
+        isRefreshing={eventsRefreshing}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onRefresh={handleRefreshAll}
+      />
+
+      {/* Main Workspace Area */}
+      <main className="flex-1 flex flex-col p-2.5 sm:p-4 max-w-[1920px] w-full mx-auto overflow-hidden">
+        {/* Analytics Tab View */}
+        {activeTab === "analytics" && (
+          <div className="flex-1 overflow-y-auto max-w-6xl w-full mx-auto py-2 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-border/60">
+              <div>
+                <h2 className="text-lg font-bold tracking-tight text-foreground">
+                  Global Conflict & OSINT Analytics
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Aggregated telemetry, severity spectrums, and geographical hotspot distribution.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-8"
+                onClick={() => setActiveTab("feed")}
+              >
+                Back to Feed
+              </Button>
+            </div>
+
+            <StatsPanel
+              stats={stats}
+              health={health}
+              isLoading={statsLoading}
+              onSelectCategory={(cat: EventCategory) => {
+                setCategory(cat)
+                setActiveTab("feed")
+              }}
+              onSelectCountry={(cc: string) => {
+                setCountryCode(cc)
+                setActiveTab("feed")
+              }}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+          </div>
+        )}
+
+        {/* Live Feed Tab View */}
+        {activeTab === "feed" && (
+          <div className="flex-1 h-[calc(100vh-8.5rem)] max-w-4xl w-full mx-auto">
+            <EventFeed
+              events={events}
+              total={total}
+              isLoading={eventsLoading}
+              isRefreshing={eventsRefreshing}
+              error={eventsError}
+              selectedEvent={selectedEvent}
+              category={category}
+              minSeverity={minSeverity}
+              countryCode={countryCode}
+              search={search}
+              onSelectEvent={handleSelectEvent}
+              onInspectEvent={handleInspectEvent}
+              onCategoryChange={setCategory}
+              onMinSeverityChange={setMinSeverity}
+              onCountryCodeChange={setCountryCode}
+              onSearchChange={setSearch}
+              onResetFilters={resetFilters}
+              onRefresh={refreshEvents}
+            />
+          </div>
+        )}
       </main>
+
+      {/* Bottom Attribution Footer */}
+      <footer className="border-t border-border/70 bg-card/40 backdrop-blur-xs px-4 py-2.5 text-[11px] text-muted-foreground flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="flex items-center gap-1.5 font-medium text-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Happening Board</span>
+          </span>
+          <span className="hidden sm:inline text-border">·</span>
+          <span>
+            Data powered with gratitude to{" "}
+            <a
+              href="https://www.gdeltproject.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground hover:text-primary underline underline-offset-2 transition-colors font-medium"
+            >
+              GDELT
+            </a>
+          </span>
+          <span className="hidden sm:inline text-border">·</span>
+          <span>
+            Inspired by{" "}
+            <a
+              href="https://liveuamap.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground hover:text-primary underline underline-offset-2 transition-colors font-medium"
+            >
+              Liveuamap
+            </a>{" "}
+            &amp;{" "}
+            <a
+              href="https://monitor-the-situation.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground hover:text-primary underline underline-offset-2 transition-colors font-medium"
+            >
+              Monitor the Situation
+            </a>
+          </span>
+        </div>
+      </footer>
+
+      {/* Modals */}
+      <EventDetailDialog
+        event={inspectEvent}
+        open={!!inspectEvent}
+        onOpenChange={(open) => {
+          if (!open) setInspectEvent(null)
+        }}
+      />
+
+      <IngestModal
+        open={isIngestModalOpen}
+        onOpenChange={setIsIngestModalOpen}
+        health={health}
+        onIngestSuccess={handleRefreshAll}
+      />
     </div>
-  );
+  )
 }

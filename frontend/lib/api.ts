@@ -10,6 +10,8 @@ import {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
+const X_API_KEY = process.env.NEXT_X_API_KEY || "api-key-ingest"
+
 async function apiFetch<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
   try {
@@ -90,7 +92,7 @@ export async function fetchIngestStatus(): Promise<IngestStatusResponse> {
 }
 
 export async function triggerIngest(
-  apiKey: string,
+  apiKey: string = X_API_KEY,
   maxRecords: number = 50
 ): Promise<{ status: string; message: string }> {
   return apiFetch<{ status: string; message: string }>(

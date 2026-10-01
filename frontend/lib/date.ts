@@ -1,4 +1,4 @@
-export function formateFullDateTime(timestampStr: string): string {
+export function formatFullDateTime(timestampStr: string): string {
   if (!timestampStr) {
     return "N/A";
   }

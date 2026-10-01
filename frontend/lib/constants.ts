@@ -1,4 +1,5 @@
 import { EventCategory, SeverityLevel } from "./types"
+export { getCountryName, gdeltToIso, isoToGdelt } from "./country"
 
 export const CATEGORY_CONFIG: Record<
   EventCategory,
@@ -122,20 +123,4 @@ export const SEVERITY_CONFIG: Record<
     dotColor: "bg-rose-600",
     description: "Major invasion, strategic infrastructure destruction, WMD / mass casualty",
   },
-}
-
-const regionNames = new Intl.DisplayNames(["en"], {
-    type: "region",
-})
-
-export function getCountryName(code: string | null | undefined): string {
-      if (!code) return "Unknown"
-
-  const upper = code.toUpperCase()
-
-  try {
-    return regionNames.of(upper) ?? upper
-  } catch {
-    return upper
-  }
 }

@@ -1,0 +1,37 @@
+name: Cleanup Old Records
+
+on:
+  schedule:
+    # Every Sunday at 03:00 UTC
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+jobs:
+  cleanup-old-records:
+    name: Purge Records Older Than 7 Days
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Delete events and ingest_logs older than 7 days
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Running 7-day retention cleanup..."
+
+          psql "$DATABASE_URL" <<'SQL'
+            DELETE FROM events
+            WHERE created_at < NOW() - INTERVAL '7 days';
+
+            DELETE FROM ingest_logs
+            WHERE timestamp < NOW() - INTERVAL '7 days';
+
+            SELECT 'events' AS table_name, COUNT(*) AS remaining FROM events
+            UNION ALL
+            SELECT 'ingest_logs', COUNT(*) FROM ingest_logs;
+          SQL
+
+          echo "Cleanup complete."
