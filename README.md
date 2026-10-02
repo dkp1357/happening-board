@@ -22,7 +22,7 @@ Key capabilities include:
 
 ---
 
-## 🏗 Architecture
+## Architecture
 
 ```mermaid
 flowchart TD
@@ -32,14 +32,14 @@ flowchart TD
         GHA["GitHub Actions (Cron Trigger)"]
     end
 
-    subgraph Infrastructure["Docker Compose / Infrastructure"]
+    subgraph Infrastructure["Infrastructure"]
         Postgres[("PostgreSQL\n(Event & Ingestion Logs)")]
         Redis[("Redis\n(Query Cache)")]
     end
 
     subgraph Application["Happening Board Application"]
-        Backend["FastAPI Backend\n(:8000)\n- Asyncpg / UV\n- SlowAPI Rate Limiting\n- GeoJSON & REST API"]
-        Frontend["Next.js Frontend\n(:3000)\n- TypeScript\n- Tailwind CSS \n- Standalone Output"]
+        Backend["FastAPI Backend\n- Asyncpg / UV\n- SlowAPI Rate Limiting\n- GeoJSON & REST API"]
+        Frontend["Next.js Frontend\n- TypeScript\n- Tailwind CSS"]
     end
 
     GHA -->|"POST /api/v1/ingest/trigger"| Backend
@@ -52,7 +52,7 @@ flowchart TD
 
 ---
 
-## 🛠 Tech Stack
+## Tech Stack
 
 | Domain | Technology | Details |
 | --- | --- | --- |
@@ -68,7 +68,7 @@ flowchart TD
 
 ---
 
-## 📁 Repository Structure
+## Repository Structure
 
 ```text
 happening-board/
@@ -103,7 +103,7 @@ happening-board/
 
 ---
 
-## ⚡ Quickstart with Docker Compose
+## Quickstart with Docker Compose
 
 The fastest way to run the entire platform (PostgreSQL, Redis, FastAPI Backend, and Next.js Frontend) is using Docker Compose.
 
@@ -140,15 +140,15 @@ docker compose down
 
 ---
 
-## 💻 Local Development Setup
+## Local Development Setup
 
-If you prefer running services locally for development:
+Running locally for development:
 
 ### Prerequisites
 
 - [Docker](https://www.docker.com/) (for PostgreSQL and Redis)
 - [Python 3.12+](https://www.python.org/) & [uv](https://docs.astral.sh/uv/)
-- [Node.js 20+](https://nodejs.org/) & [pnpm](https://pnpm.io/) (`corepack enable pnpm`)
+- [Node.js 22+](https://nodejs.org/) & [pnpm](https://pnpm.io/) (`corepack enable pnpm`)
 
 ### 1. Start Database & Redis
 
@@ -190,7 +190,7 @@ The frontend dashboard will be available at [http://localhost:3000](http://local
 
 ---
 
-## ⚙️ Environment Variables
+## Environment Variables
 
 The project uses a unified `.env` file at the root. The available options include:
 
@@ -236,7 +236,7 @@ The project uses a unified `.env` file at the root. The available options includ
 
 ---
 
-## 📡 API Reference
+## API Reference
 
 | Method | Endpoint | Description | Auth |
 | --- | --- | --- | --- |
@@ -252,7 +252,7 @@ The project uses a unified `.env` file at the root. The available options includ
 
 ---
 
-## 🐳 Docker Deployment Details
+## Docker Deployment Details
 
 ### Frontend Multi-Stage Build
 
