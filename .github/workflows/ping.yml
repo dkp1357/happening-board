@@ -8,14 +8,15 @@ on:
 jobs:
   ping-api:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
 
     steps:
       - name: Ping API
         run: |
           echo "Pinging ${{ secrets.APP_URL }}/health..."
 
-          curl -f --max-time 30 \
+          curl -f \
+            --max-time 260 \
             "${{ secrets.APP_URL }}/health"
 
           echo "API is reachable."
